@@ -35,6 +35,12 @@ export const VITE_API_CLOUD_URL = CLOUD_DRIVE_BASE_URL;
 
 export function getCloudFileUrl(path?: string): string {
   if (!path) return '';
+  if (path.includes('guru.hidis.id')) {
+    return path.replace(/https?:\/\/guru\.hidis\.id/i, CLOUD_DRIVE_BASE_URL);
+  }
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   return `${CLOUD_DRIVE_BASE_URL}/files${encodeURI(cleanPath)}`;
 }
@@ -121,12 +127,38 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
-  // Seluruh request /files/* (Cloud Storage Filebrowser) diarahkan ke server local /api/files/*
-  if (config.url && (config.url.startsWith('/files/') || config.url === '/files')) {
-    config.baseURL = '/api';
-  } else {
-    config.baseURL = getActiveApiBaseUrl();
+  // Selalu arahkan ke baseURL backend Cloudflare Workers yang aktif (mencegah error 405 di cloudflare workers.dev)
+  config.baseURL = getActiveApiBaseUrl();
+
+  // Sertakan header otentikasi role untuk Cloudflare Worker backend JIBAS
+  config.headers = config.headers || {};
+  let currentRole = 'landlord';
+  let currentUsername = 'landlord';
+  let currentTingkat = '1';
+
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = window.localStorage.getItem('jibas-auth-storage');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const u = parsed?.state?.user;
+        if (u) {
+          currentUsername = u.username || 'landlord';
+          currentTingkat = String(u.tingkat || 1);
+          currentRole =
+            Number(u.tingkat) === 1 ? 'landlord' : u.username || 'landlord';
+        }
+      }
+    } catch {
+      // Abaikan jika parsing storage gagal
+    }
   }
+
+  config.headers['x-user-role'] = currentRole;
+  config.headers['x-username'] = currentUsername;
+  config.headers['x-tingkat'] = currentTingkat;
+  config.headers['x-source'] = 'jibas-erp';
+
   return config;
 });
 
