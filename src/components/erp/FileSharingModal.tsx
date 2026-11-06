@@ -468,9 +468,11 @@ export function FileSharingModal({
         fileInputRef.current.value = '';
       }
 
-      // Refresh file list & dynamic folders
-      loadCloudFiles(currentFolder);
+      // Pastikan direktori aktif di UI berpindah ke folder tujuan upload dan muat berkasnya
+      setCurrentFolder(target);
+      loadCloudFiles(target);
       refreshFolders();
+      setViewMode('list');
     } catch (err) {
       setErrorMsg(extractApiErrorMessage(err, '/api/files/upload'));
     } finally {

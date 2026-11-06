@@ -22,9 +22,16 @@ export const DEFAULT_API_BASE_URL = resolveApiBaseUrl(
   import.meta.env.VITE_API_BASE_URL
 );
 
-export const CLOUD_DRIVE_BASE_URL =
+export const CLOUD_DRIVE_BASE_URL = (
+  import.meta.env.VITE_API_CLOUD_URL ||
+  import.meta.env.vite_api_cloud_url ||
   import.meta.env.VITE_CLOUD_DRIVE_BASE_URL ||
-  'https://drive.sdn2balepanjang.sch.id';
+  'https://drive.sdn2balepanjang.sch.id'
+)
+  .trim()
+  .replace(/\/+$/, '');
+
+export const VITE_API_CLOUD_URL = CLOUD_DRIVE_BASE_URL;
 
 export function getCloudFileUrl(path?: string): string {
   if (!path) return '';
@@ -114,7 +121,12 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
-  config.baseURL = getActiveApiBaseUrl();
+  // Seluruh request /files/* (Cloud Storage Filebrowser) diarahkan ke server local /api/files/*
+  if (config.url && (config.url.startsWith('/files/') || config.url === '/files')) {
+    config.baseURL = '/api';
+  } else {
+    config.baseURL = getActiveApiBaseUrl();
+  }
   return config;
 });
 
